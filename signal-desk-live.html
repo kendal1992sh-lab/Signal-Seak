@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Signal Desk</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f2fb;--card:#fff;--ink:#1c1530;--mute:#6d6585;--line:#e2ddf0;--accent:#6d3df5;--buy:#0a8f61;--sell:#d9304f;--field:#f0ecfa;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#120a26;--card:#1b1138;--ink:#f1ecff;--mute:#a79cc8;--line:#2e2159;--accent:#9a73ff;--buy:#3ddc9a;--sell:#ff6b86;--field:#241849}}
+:root[data-theme="dark"]{--bg:#120a26;--card:#1b1138;--ink:#f1ecff;--mute:#a79cc8;--line:#2e2159;--accent:#9a73ff;--buy:#3ddc9a;--sell:#ff6b86;--field:#241849}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 Sora,system-ui,-apple-system,sans-serif}
+main{max-width:520px;margin:0 auto;padding:18px 16px 40px}
+h1{font-size:22px;margin:0}h2{font-size:15px;margin:22px 0 10px}
+.sub{color:var(--mute);margin:2px 0 14px;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px}
+.stat b{display:block;font-size:18px}.stat span{color:var(--mute);font-size:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+.row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
+.row3{grid-template-columns:repeat(3,1fr)}
+label{font-size:12px;color:var(--mute);display:block}
+input,select{width:100%;box-sizing:border-box;margin-top:3px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);font:inherit;font-size:16px}
+button{font:inherit;cursor:pointer;border:0;border-radius:10px;padding:10px 12px;background:var(--accent);color:#fff;font-weight:600}
+button.ghost{background:var(--field);color:var(--ink)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.full{width:100%}
+.err{color:var(--sell);font-size:13px;min-height:18px;margin:6px 0 0}
+.sig{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--mute);border-radius:14px;padding:12px;margin-bottom:10px}
+.sig.buy{border-left-color:var(--buy)}.sig.sell{border-left-color:var(--sell)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sym{font-weight:700}.buy .d{color:var(--buy)}.sell .d{color:var(--sell)}
+.pill{font-size:12px;padding:3px 9px;border-radius:99px;background:var(--field);color:var(--mute)}
+.lv{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:10px 0;text-align:center}
+.lv div{background:var(--field);border-radius:10px;padding:7px 2px;font-size:13px}
+.lv span{display:block;font-size:11px;color:var(--mute)}
+.meta{font-size:12px;color:var(--mute);margin-bottom:8px}
+.acts{display:flex;flex-wrap:wrap;gap:6px}.acts button{padding:7px 10px;font-size:13px}
+.empty{color:var(--mute);text-align:center;padding:18px}
+.note{font-size:12px;color:var(--mute);margin-top:22px}
+textarea{width:100%;box-sizing:border-box;margin-top:3px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--ink);font:inherit;font-size:16px}
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#gout{margin-top:10px}#gout ul{margin:6px 0;padding-left:18px;font-size:13px;color:var(--mute)}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script></head><body><main>
+<h1>Signal Desk</h1>
+<p class="sub">Log your own trade ideas, size the risk, and track how they play out.</p>
+<div class="stats" id="stats"></div>
+
+<h2>Risk settings</h2>
+<div class="panel"><div class="row row3">
+<div><label>Balance ($)</label><input id="bal" type="number" inputmode="decimal"></div>
+<div><label>Risk per trade (%)</label><input id="risk" type="number" inputmode="decimal"></div>
+<div><label>Contract size</label><input id="cs" type="number" inputmode="decimal"></div></div>
+<div class="sub" style="margin:0">Gold: 1 lot = 100 oz, so contract size 100.</div></div>
+
+<h2>BBB Sniper signal generator</h2>
+<div class="panel"><div class="sub" style="margin-top:0">Paste recent candles from your chart, one per line as high, low, close (or just closing prices). The app looks for a liquidity sweep followed by a structure break (BOS or CHoCH), filters it with EMA trend, VWAP and momentum, and sizes the stop with ATR.</div>
+<label>Symbol</label><input id="gsym" value="XAU/USD" style="margin-bottom:8px">
+<label>Strictness</label><select id="lvl" style="margin-bottom:8px"><option value="3">Strict: all 3 filters agree</option><option value="2" selected>Balanced: 2 of 3 filters</option><option value="1">Flexible: 1 of 3 filters</option></select>
+<label>API key (Twelve Data, kept in this browser)</label><input id="key" type="password" autocomplete="off" style="margin-bottom:8px">
+<div class="row"><div><label>Timeframe</label><select id="iv"><option value="5min">5 min</option><option value="15min" selected>15 min</option><option value="1h">1 hour</option><option value="4h">4 hours</option></select></div><div style="display:flex;align-items:flex-end"><button class="full" id="load">Load live candles</button></div></div>
+<label style="margin:0 0 8px"><input id="auto" type="checkbox" style="width:auto;margin:0 6px 0 0">Refresh every 2 minutes</label>
+<div id="chart" style="display:none;height:260px;margin:8px 0"></div>
+<label>Candles (loaded automatically, or paste your own)</label><textarea id="data" rows="5" placeholder="3590.10, 3581.20, 3584.55"></textarea>
+<button class="full" id="gen" style="margin-top:8px">Find a setup</button><div id="gout"></div></div>
+
+<h2>New signal</h2>
+<div class="panel">
+<div class="row"><div><label>Symbol</label><input id="sym" value="XAU/USD"></div>
+<div><label>Direction</label><select id="dir"><option value="sell">Sell</option><option value="buy">Buy</option></select></div></div>
+<div class="row"><div><label>Entry</label><input id="e" type="number" inputmode="decimal"></div>
+<div><label>Stop loss</label><input id="sl" type="number" inputmode="decimal"></div></div>
+<div class="row"><div><label>Take profit 1</label><input id="t1" type="number" inputmode="decimal"></div>
+<div><label>Take profit 2</label><input id="t2" type="number" inputmode="decimal"></div></div>
+<button class="full" id="add">Add signal</button><p class="err" id="err"></p></div>
+
+<h2>Signals</h2><div id="list"></div>
+<p class="note">This is a personal tracker. It doesn’t place trades; candles come from Twelve Data using your own API key. Setups come from rules applied to the candles you provide. VWAP is equal-weighted because gold candles carry no volume. Nothing here is guaranteed. Trading leveraged products can lose more than you expect, so never risk money you can’t afford to lose.</p>
+</main>
+<script>
+var KEY='signaldesk-v1',S={s:[],set:{bal:1000,risk:1,cs:100}};
+try{var raw=localStorage.getItem(KEY);if(raw){var p=JSON.parse(raw);if(p&&p.s&&p.set)S=p}}catch(e){}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+function $(i){return document.getElementById(i)}
+function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function f(n){return (+n).toFixed(2)}
+var LABEL={pending:'Pending',active:'Active',tp1:'TP1 hit',tp2:'TP2 hit',stop:'Stopped out'};
+function rr(s){var r=Math.abs(s.e-s.sl);return{r1:Math.abs(s.t1-s.e)/r,r2:Math.abs(s.t2-s.e)/r,d:r}}
+function result(s){if(s.st==='stop')return -1;if(s.st==='tp1')return rr(s).r1;if(s.st==='tp2')return rr(s).r2;return null}
+function render(){
+  ['bal','risk','cs'].forEach(function(k){if(document.activeElement!==$(k))$(k).value=S.set[k]});
+  var closed=S.s.filter(function(s){return result(s)!==null}),wins=closed.filter(function(s){return result(s)>0}).length,tot=closed.reduce(function(a,s){return a+result(s)},0);
+  $('stats').innerHTML='<div class="stat"><b>'+S.s.length+'</b><span>Signals</span></div><div class="stat"><b>'+(closed.length?Math.round(wins/closed.length*100)+'%':'–')+'</b><span>Win rate</span></div><div class="stat"><b>'+(closed.length?(tot>0?'+':'')+tot.toFixed(1)+'R':'–')+'</b><span>Total result</span></div>';
+  if(!S.s.length){$('list').innerHTML='<div class="empty">No signals yet. Add your first trade idea above.</div>';return}
+  var riskUsd=S.set.bal*S.set.risk/100;
+  $('list').innerHTML=S.s.map(function(s){var q=rr(s),lots=riskUsd/(q.d*S.set.cs),a='';
+    if(s.st==='pending')a='<button data-a="active" data-id="'+s.id+'">Mark active</button>';
+    if(s.st==='active')a='<button data-a="tp1" data-id="'+s.id+'">TP1 hit</button><button data-a="tp2" data-id="'+s.id+'">TP2 hit</button><button class="ghost" data-a="stop" data-id="'+s.id+'">Stopped out</button>';
+    a+='<button class="ghost" data-a="del" data-id="'+s.id+'">Delete</button>';
+    return '<div class="sig '+s.dir+'"><div class="top"><div><span class="sym">'+esc(s.sym)+'</span> <span class="d">'+(s.dir==='buy'?'Buy':'Sell')+'</span></div><span class="pill">'+LABEL[s.st]+'</span></div>'+
+    '<div class="lv"><div><span>Entry</span>'+f(s.e)+'</div><div><span>Stop</span>'+f(s.sl)+'</div><div><span>TP1</span>'+f(s.t1)+'</div><div><span>TP2</span>'+f(s.t2)+'</div></div>'+
+    '<div class="meta">Reward to risk '+q.r1.toFixed(1)+' / '+q.r2.toFixed(1)+' · Risk $'+riskUsd.toFixed(2)+' · Size '+lots.toFixed(2)+' lots</div><div class="acts">'+a+'</div></div>'}).join('');
+}
+['bal','risk','cs'].forEach(function(k){$(k).addEventListener('input',function(){var v=parseFloat($(k).value);if(v>0){S.set[k]=v;save();render()}})});
+$('add').addEventListener('click',function(){
+  var s={id:Date.now(),sym:$('sym').value.trim()||'Symbol',dir:$('dir').value,e:parseFloat($('e').value),sl:parseFloat($('sl').value),t1:parseFloat($('t1').value),t2:parseFloat($('t2').value),st:'pending'};
+  var ok=[s.e,s.sl,s.t1,s.t2].every(function(n){return isFinite(n)});
+  if(!ok){$('err').textContent='Enter entry, stop loss and both take-profit levels.';return}
+  var good=s.dir==='buy'?(s.sl<s.e&&s.e<s.t1&&s.t1<s.t2):(s.sl>s.e&&s.e>s.t1&&s.t1>s.t2);
+  if(!good){$('err').textContent=s.dir==='buy'?'For a buy: stop < entry < TP1 < TP2.':'For a sell: stop > entry > TP1 > TP2.';return}
+  $('err').textContent='';S.s.unshift(s);save();render();
+});
+$('list').addEventListener('click',function(ev){var b=ev.target.closest('button');if(!b)return;var id=+b.dataset.id,a=b.dataset.a;
+  if(a==='del')S.s=S.s.filter(function(s){return s.id!==id});
+  else S.s.forEach(function(s){if(s.id===id)s.st=a});
+  save();render()});
+function parseBars(t){var rows=t.split(/\n/).map(function(l){return l.split(/[\s,;]+/).map(parseFloat).filter(isFinite)}).filter(function(r){return r.length});
+ if(rows.length===1&&rows[0].length>3)rows=rows[0].map(function(x){return[x]});
+ return rows.map(function(n){return n.length>=3?{h:n[n.length-3],l:n[n.length-2],c:n[n.length-1]}:{h:n[0],l:n[0],c:n[0]}})}
+function ema(v,p){var k=2/(p+1),e=v[0];for(var i=1;i<v.length;i++)e=v[i]*k+e*(1-k);return e}
+function rsi(c){var g=0,l=0;for(var i=c.length-14;i<c.length;i++){var d=c[i]-c[i-1];if(d>0)g+=d;else l-=d}return l===0?100:100-100/(1+g/l)}
+function atr(b){var s=0;for(var i=b.length-14;i<b.length;i++){var p=b[i-1].c;s+=Math.max(b[i].h-b[i].l,Math.abs(b[i].h-p),Math.abs(b[i].l-p))}return s/14}
+var LVL=2;
+function piv(w,k){var H=[],L=[];for(var p=k;p<w.length-k;p++){var hi=true,lo=true;for(var q=p-k;q<=p+k;q++){if(w[q].h>w[p].h)hi=false;if(w[q].l<w[p].l)lo=false}if(hi)H.push({p:p,v:w[p].h});if(lo)L.push({p:p,v:w[p].l})}return{H:H,L:L}}
+function sigAt(b,i){
+ var w=b.slice(Math.max(0,i-199),i+1),n=w.length,c=w.map(function(q){return q.c}),x=c[n-1],a=n>=60?atr(w):0;
+ if(n<60||!(a>0))return{why:['Not enough candles or price movement.']};
+ var e20=ema(c,20),e50=ema(c,50),r=rsi(c),vs=w.slice(-60),vw=vs.reduce(function(t,q){return t+(q.h+q.l+q.c)/3},0)/vs.length,P=piv(w,3),P2=piv(w,2),sw=null,j;
+ for(j=n-1;j>=n-8&&!sw;j--){
+  var hh=P.H.filter(function(z){return z.p<j-3&&z.p>j-60}).pop(),ll=P.L.filter(function(z){return z.p<j-3&&z.p>j-60}).pop();
+  if(hh&&w[j].h>hh.v&&w[j].c<hh.v)sw={dir:'sell',j:j,lv:hh.v,ext:w[j].h};
+  else if(ll&&w[j].l<ll.v&&w[j].c>ll.v)sw={dir:'buy',j:j,lv:ll.v,ext:w[j].l}}
+ if(!sw)return{why:['No liquidity sweep in the last 8 candles: price has not taken a recent swing high or low and reversed. The rules say wait.']};
+ var s=sw.dir==='buy'?1:-1,sell=s<0,ref=(sell?P2.L:P2.H).filter(function(z){return z.p<sw.j}).pop(),kb=-1,k;
+ if(ref)for(k=sw.j+1;k<n;k++){if(sell?c[k]<ref.v:c[k]>ref.v){kb=k;break}}
+ if(kb<0)return{why:['A '+(sell?'bearish':'bullish')+' liquidity sweep of '+sw.lv.toFixed(2)+' happened, but price has not yet broken structure. Wait for a close '+(sell?'below':'above')+' '+(ref?ref.v.toFixed(2):'the prior swing')+'.']};
+ if(kb<n-3)return{why:['Structure broke more than 3 candles ago, so the entry is stale. Wait for a fresh setup.']};
+ var f=[x*s>e20*s,x*s>vw*s,s*(r-50)>0&&s*(x-c[n-4])>0],ok=f.filter(Boolean).length,m=function(t){return t?'agrees':'disagrees'};
+ if(ok<LVL)return{why:['Sweep and structure break found, but only '+ok+' of 3 filters agree (price vs EMA 20 '+m(f[0])+', VWAP '+m(f[1])+', momentum '+m(f[2])+'). Your strictness needs '+LVL+'.']};
+ var d=Math.max(Math.abs(x-sw.ext)+0.25*a,0.8*a);
+ if(d>3*a)return{why:['A setup exists but the stop would be wider than 3 × ATR, which is too much risk. Skip it.']};
+ var up=e20>e50;
+ return{dir:sw.dir,tag:(sell===up)?'CHoCH':'BOS',e:x,sl:x-s*d,t1:x+s*d*1.5,t2:x+s*d*2.5,why:[
+  'Liquidity sweep: price took the swing '+(sell?'high':'low')+' at '+sw.lv.toFixed(2)+' and closed back '+(sell?'below':'above')+' it.',
+  ((sell===up)?'CHoCH (reversal)':'BOS (continuation)')+': a close '+(sell?'below':'above')+' the swing '+(sell?'low':'high')+' at '+ref.v.toFixed(2)+' confirmed the shift.',
+  'Filters '+ok+' of 3: price vs EMA 20 '+m(f[0])+', VWAP '+m(f[1])+', momentum '+m(f[2])+'.',
+  'Stop sits past the sweep extreme plus 0.25 ATR ('+a.toFixed(2)+'). Targets are 1.5R and 2.5R.']}}
+function backtest(b){var w=0,l=0,i=59;while(i<b.length-1){var s=sigAt(b,i);if(!s.dir){i++;continue}var j=i+1,res=null;
+ for(;j<b.length;j++){var q=b[j];if(s.dir==='buy'){if(q.l<=s.sl){res=-1;break}if(q.h>=s.t1){res=1;break}}else{if(q.h>=s.sl){res=-1;break}if(q.l<=s.t1){res=1;break}}}
+ if(res===null)break;if(res>0)w++;else l++;i=j+1}
+ return{w:w,l:l}}
+var lastSig=null;
+$('gen').addEventListener('click',function(){var b=parseBars($('data').value).slice(-500),o=$('gout'),h='';lastSig=null;LVL=+$('lvl').value;
+ if(b.length<60){o.innerHTML='<p class="err">Paste at least 60 candles, one per line (high, low, close) or just closing prices.</p>';return}
+ var s=sigAt(b,b.length-1),t=backtest(b),n=t.w+t.l;
+ if(s.dir){lastSig=s;h='<div class="sig '+s.dir+'"><div class="top"><div><span class="sym">'+esc($('gsym').value||'Symbol')+'</span> <span class="d">'+(s.dir==='buy'?'Buy':'Sell')+'</span></div><span class="pill">'+s.tag+' setup</span></div><div class="lv"><div><span>Entry</span>'+f(s.e)+'</div><div><span>Stop</span>'+f(s.sl)+'</div><div><span>TP1</span>'+f(s.t1)+'</div><div><span>TP2</span>'+f(s.t2)+'</div></div><ul>'+s.why.map(function(x){return'<li>'+x+'</li>'}).join('')+'</ul><button id="gadd">Add to my signals</button></div>'}
+ else h='<div class="sig"><div class="top"><span class="sym">No trade right now</span></div><ul>'+s.why.map(function(x){return'<li>'+x+'</li>'}).join('')+'</ul></div>';
+ h+='<div class="meta">'+(n?'On your '+b.length+' candles the same rules completed '+n+' trades: '+t.w+' reached TP1 before the stop and '+t.l+' hit the stop first ('+Math.round(t.w/n*100)+'% wins, net '+(t.w*1.5-t.l).toFixed(1)+'R). Past results don’t predict future ones.':'The rules produced no completed trades on this data, so there is nothing to test them against.')+'</div>';
+ o.innerHTML=h;
+ if(liveMeta&&liveMeta.length===b.length){drawChart(b.map(function(x,i){return{t:liveMeta[i].t,o:liveMeta[i].o,h:x.h,l:x.l,c:x.c}}));drawLevels(s)}});
+$('gout').addEventListener('click',function(ev){if(ev.target.id==='gadd'&&lastSig){S.s.unshift({id:Date.now(),sym:$('gsym').value.trim()||'Symbol',dir:lastSig.dir,e:lastSig.e,sl:lastSig.sl,t1:lastSig.t1,t2:lastSig.t2,st:'pending'});save();render();ev.target.textContent='Added';ev.target.disabled=true}});
+var chart=null,series=null,lines=[],liveMeta=null,timer=null;
+function drawChart(b){var el=$('chart');el.style.display='block';
+ if(!chart&&window.LightweightCharts){var dk=matchMedia('(prefers-color-scheme: dark)').matches;chart=LightweightCharts.createChart(el,{autoSize:true,layout:{background:{color:'transparent'},textColor:dk?'#a79cc8':'#6d6585'},grid:{vertLines:{visible:false},horzLines:{color:dk?'#2e2159':'#e2ddf0'}},timeScale:{timeVisible:true}});series=chart.addCandlestickSeries()}
+ if(!chart)return;
+ series.setData(b.map(function(x){return{time:x.t,open:x.o,high:x.h,low:x.l,close:x.c}}));
+ lines.forEach(function(l){series.removePriceLine(l)});lines=[];chart.timeScale().fitContent()}
+function drawLevels(s){if(!series||!s.dir)return;
+ [['Entry',s.e,'#9a73ff'],['SL',s.sl,'#ff6b86'],['TP1',s.t1,'#3ddc9a'],['TP2',s.t2,'#3ddc9a']].forEach(function(a){lines.push(series.createPriceLine({price:a[1],color:a[2],lineWidth:1,title:a[0]}))})}
+try{$('key').value=localStorage.getItem('sd-key')||''}catch(e){}
+function load(){var k=$('key').value.trim(),sy=$('gsym').value.trim()||'XAU/USD';
+ if(!k){$('gout').innerHTML='<p class="err">Enter your Twelve Data API key first.</p>';return}
+ try{localStorage.setItem('sd-key',k)}catch(e){}
+ $('gout').innerHTML='<p class="sub">Loading candles…</p>';
+ fetch('https://api.twelvedata.com/time_series?symbol='+encodeURIComponent(sy)+'&interval='+$('iv').value+'&outputsize=300&timezone=UTC&apikey='+encodeURIComponent(k)).then(function(r){return r.json()}).then(function(j){
+  if(j.status!=='ok'||!j.values){$('gout').innerHTML='<p class="err">'+esc(j.message||'No data returned. Check the symbol, timeframe and your API plan.')+'</p>';return}
+  var v=j.values.slice().reverse();
+  liveMeta=v.map(function(x){return{t:Math.floor(Date.parse(x.datetime.replace(' ','T')+'Z')/1000),o:+x.open}});
+  $('data').value=v.map(function(x){return x.high+', '+x.low+', '+x.close}).join('\n');
+  $('gen').click()}).catch(function(){$('gout').innerHTML='<p class="err">Couldn’t reach the data service. Check your connection and try again.</p>'})}
+$('load').addEventListener('click',load);
+$('auto').addEventListener('change',function(){clearInterval(timer);if($('auto').checked)timer=setInterval(load,120000)});
+render();
+</script></body></html>
